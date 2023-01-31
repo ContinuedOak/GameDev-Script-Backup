@@ -8,6 +8,7 @@ public class BackPackSelect : MonoBehaviour
 
     public void DropdownSample(int Mask)
     {
+    // Name of "Mask Type" to run its function
         switch (Mask)
         {
             case 0: Nothing(); break;
@@ -19,7 +20,7 @@ public class BackPackSelect : MonoBehaviour
                 
         }
     }
-
+// Model of "Mask Type" to run in its function
     [Header("GameObjects")]
     public GameObject A_normal;
     public GameObject A_camping;
@@ -29,8 +30,8 @@ public class BackPackSelect : MonoBehaviour
 
     void normal()
     {
-        Nothing();
-        A_normal.SetActive(true);
+        Nothing(); // This disables the all of the models of the mask
+        A_normal.SetActive(true); // so that this can show the mask, if this was first it would be disabled.
     }
 
     void camping()
@@ -59,6 +60,7 @@ public class BackPackSelect : MonoBehaviour
 
     void Nothing()
     {
+    // Remember to add the new mask model here to disable
         A_pink.SetActive(false);
         A_camping.SetActive(false);
         A_big.SetActive(false);
