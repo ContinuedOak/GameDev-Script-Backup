@@ -1,0 +1,298 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System;
+
+public class ZombieAI : MonoBehaviour
+{
+    [Header("ZombieAI Editor By ContinuedOak")]
+    [Header("bv.0.4")]
+    [Space(12)]
+    #region Config
+
+    [Header("Config")]
+    public bool hasAI;
+    public bool isAlive;
+    public bool isIdle;
+    public bool isDead;
+    public bool isVisible;
+    public bool isCrawler;
+    public float speed;
+    public int health;
+    public float[] hitBox; // [0] = x, [1] = y, [2] = z.
+    public float[] cHitBox; // [0] = x, [1] = y, [2] = z.
+    public float[] offSet; // [0] = C, [1] = W.
+    public float destroyTime = 3f;
+
+    [Header("Animations")]
+    public int _animator;
+    public Animator animator;
+    public RuntimeAnimatorController[] newController;
+
+    [Header("Scriptable/Attachables")]
+    public GameObject model;
+    public GameObject spawnObject;
+    public GameObject[] drops;
+    public delegate void ZombieDeathEventHandler(ZombieAI zombie);
+    public event ZombieDeathEventHandler OnZombieDeath;
+
+
+    [Header("Audio")]
+    public AudioClip[] audioClips;
+    private AudioSource audioSource;
+    public AudioClip death;
+
+    [Header("Ai Events")]
+    public bool isFollowing;
+    public bool despawn;
+    public event Action<ZombieAI> Despawned;
+
+    // private Configs...
+    private UnityEngine.AI.NavMeshAgent navAgent;
+    public float healthDecreaseRate = 10f; // Health decrease rate per second
+    private UnityEngine.AI.NavMeshAgent agent;
+    private GameObject player;
+    [SerializeField] private float minDelay = 2f;
+    [SerializeField] private float maxDelay = 5f;
+    #endregion
+
+    #region Triggers/Damage
+
+    #endregion
+    #region Audio
+    private void PlayRandomClip()
+    {
+        if (audioClips.Length == 0)
+        {
+            Debug.LogWarning("No audio clips assigned to the array.");
+            return;
+        }
+
+        int randomIndex = UnityEngine.Random.Range(0, audioClips.Length);
+        audioSource.clip = audioClips[randomIndex];
+        audioSource.Play();
+    }
+
+
+    private IEnumerator PlayRandomClipsContinuously(float minDelay = 1f, float maxDelay = 3f)
+    {
+        while (true)
+        {
+            PlayRandomClip();
+            float delay = UnityEngine.Random.Range(minDelay, maxDelay);
+            yield return new WaitForSeconds(delay);
+        }
+    }
+
+
+    public void StartPlayingRandomClips()
+    {
+        StopPlayingRandomClips();
+        StartCoroutine(PlayRandomClipsContinuously());
+    }
+
+    public void StopPlayingRandomClips()
+    {
+        StopAllCoroutines();
+    }
+
+    #endregion
+
+    #region Unity
+    private void Start()
+    {
+        // NavInfo (AI finding its target
+        agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        player = GameObject.FindGameObjectWithTag("Player");
+        navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+        // Audio
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        StartCoroutine(PlayRandomClipsContinuously());
+
+        isFollowing = true;
+
+        // Random picks whether they crawl or walk, THIS WAS BULLSHIT TO GET EVERYTHING WORKING FOR BOTH
+        if (UnityEngine.Random.value <= 0.15f)
+        {
+            isCrawler = true;
+        }
+
+        if (isCrawler)
+        {
+            Crawler();
+        }
+        else
+        {
+            Regular();
+        }
+        ChangeSpeed();
+    }
+
+    private void Update()
+    {
+        Visiblity();
+        
+        Dead();
+        #region Has AI
+        if (hasAI)
+        {
+            ForceGo();
+            if (isAlive)
+            {
+                ForceGo();
+                Following();
+                
+            }
+        }
+        else
+        {
+            ForceStop();
+        }
+        #endregion
+    }
+    #endregion
+
+    // YOU NEED TO FINSIH REWRITTING THIS SCRIPT TO SUPPORT DEATHS FOR THE WAVES
+    // Fuck the wave system try and figure out how you want them ai spawning to work cause you've already crashed your PC 3 Times now...
+
+    // Current Ideas
+    //
+    // (Ai will constantly spawn (TO A LIMIT) and the player must upgrade their weapons to get the highest score)
+    //
+    // (AI will spawn a limited amount each round (like COD zombies) starting with a small amount of health progressivly getting harder
+    // as the player players each round, allowing for the "highest round")
+    
+    #region AI
+    private void Following()
+    {
+        if (isFollowing && player != null)
+        {
+            agent.SetDestination(player.transform.position);
+        }
+    }
+
+    private void ChangeSpeed()
+    {
+        navAgent.speed = speed;
+    }
+
+    private void ForceStop()
+    {
+        agent.isStopped = true;
+    }
+
+    private void ForceGo()
+    {
+        agent.isStopped = false;
+    }
+
+    // This is the what runs if the player is dead
+    private void Dead()
+    {
+        if (health <= 0) // double checks the players health = 0 or less then
+        {
+            isAlive = false;
+            isDead = true; // sets the players is dead
+            hasAI = false; // disables AI
+            isVisible = false; // this is currently how im handling death
+            SpawnRandomDrop();
+            // Call the OnZombieDeath event, passing this zombie as an argument
+            OnZombieDeath?.Invoke(this);
+
+        }
+        else
+        {
+            isAlive = true;
+        }
+    }
+
+    // Drops
+
+    void SpawnRandomDrop()
+    {
+        if (UnityEngine.Random.value <= 0.15f) // 15% Chance of it dropping an item
+        {
+            if (UnityEngine.Random.value <= 0.15f) // 15% Chance of it dropping an MaxAmmo
+            {
+                GameObject drop = Instantiate(drops[0], spawnObject.transform.position, Quaternion.identity);
+            }
+            if (UnityEngine.Random.value <= 0.05f) // 5% Chance of it dropping an nuke
+            {
+                GameObject drop = Instantiate(drops[1], spawnObject.transform.position, Quaternion.identity);
+            }
+            if (UnityEngine.Random.value <= 0.05f) // 5% Chance of it dropping an nuke
+            {
+                GameObject drop = Instantiate(drops[2], spawnObject.transform.position, Quaternion.identity);
+            }
+            if (UnityEngine.Random.value <= 0.25f) // 25% Chance of it dropping an nuke
+            {
+                GameObject drop = Instantiate(drops[3], spawnObject.transform.position, Quaternion.identity);
+            }
+        }
+
+    }
+    #endregion
+    #region Types
+    void Crawler()
+    {
+        // Set Animaiton Style
+        _animator = 0;
+        animator.runtimeAnimatorController = newController[_animator];
+
+
+        // Set Speed
+        speed = 0.5f;
+
+        // Change HitboxSize
+        BoxCollider boxCollider = GetComponent<BoxCollider>();
+        boxCollider.size = new Vector3(cHitBox[0], cHitBox[1], cHitBox[2]);
+        boxCollider.center = new Vector3(0, offSet[0], 0);
+
+
+        // [0] = x, [1] = y, [2] = z.
+    }
+
+    void Regular()
+    {
+        // Set Animaiton Style
+        _animator = 1;
+        animator.runtimeAnimatorController = newController[_animator];
+
+
+        // Change HitboxSize
+        BoxCollider boxCollider = GetComponent<BoxCollider>();
+        boxCollider.size = new Vector3(hitBox[0], hitBox[1], hitBox[2]);
+        boxCollider.center = new Vector3(0, offSet[1], 0);
+    }
+    #endregion
+
+    #region Visiblity/Despawn
+    private void Visiblity()
+    {
+        if (isVisible)
+        {
+            model.SetActive(true);
+        }
+        else
+        {
+            model.SetActive(false);
+        }
+    }
+
+
+    public void Despawn()
+    {
+        // Raise the "despawned" event
+        Despawned?.Invoke(this);
+
+        // Destroy the zombie game object
+        Destroy(gameObject, destroyTime);
+    }
+    #endregion
+}
