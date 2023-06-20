@@ -1,0 +1,10 @@
+using UnityEngine;
+
+[System.Serializable]
+public class NPCName
+{
+    public string[] maleName;
+    public string[] femaleName;
+    public string[] middleName;
+    public string[] surnameName;
+}
