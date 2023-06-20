@@ -1,0 +1,201 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+/// <summary>
+///  This script is created by Continued Oak to make NPC easier, this can be used to easily make Modular NPC.
+/// </summary>
+public enum Occupation
+{
+    NA, Cop, FireFighter, Paramedic, SecurityGuards, Army, ParkRanger, FBI, CIA, Taxi, Uber, RetailWorker,
+    GarbageMan, WaterWorker, DockWorker, TattooArtist, Stripper, Hooker, Mechanic, Gym, Homless, Jobless,
+    Criminal, DrugDealer, Gangster, StreetProformer, Hiker, Jogger, NewsReporter, Cameraman, ConstructionWorker,
+    PublicDriver, Cleaner
+}
+
+public enum Gang
+{
+    None, Law, GangA, GangB, GangC, GangD
+}
+
+public class NPCManager : MonoBehaviour
+{
+    [Header("NPC Manager Editor")]
+    [Header("v0.1")]
+    [Space(3)]
+
+    [Header("Config")]
+    [Tooltip("an easy way to disable the ai and mostly everything to help reduce lag")]
+    public bool hasAI; // this is an easy way to disable the ai and mostly everything to help reduce lag
+    [Tooltip("With Godmode on, the Health of the NPC will stay its current health and not change")]
+    public bool godMode; // With Godmode on, the Health of the NPC will stay its current health and not change
+    [Tooltip("// 100 is default, 200 is max limit")]
+    [Range(0, 200)] public int health = 100; // 100 is default, 200 is max limit
+    [Tooltip("Most NPC will not have amour, however amour goes down before health does")]
+    [Range(0, 100)] public int armour; // Most NPC will not have amour, however amour goes down before health does
+    [Tooltip("walkSpeed is changed using Custom NPC Script Configs")]
+    public float walkSpeed; // walkSpeed is changed using Custom NPC Script Configs
+    [Tooltip("sprintSpeed is changed using Custom NPC Script Configs")]
+    public float sprintSpeed; // sprintSpeed is changed using Custom NPC Script Configs
+    [Tooltip("hitBox[0] = X, hitBox[1] = Y, hitBox[2] = Z")]
+    public float[] hitBox; // hitBox[0] = X, hitBox[1] = Y, hitBox[2] = Z
+    [Tooltip("If the NPC is scared it will either go into shock or run away")]
+    public bool isScared; // If the NPC is scared it will either go into shock or run away.
+    [Tooltip("If NPC is Intimidated, it can react")]
+    public bool isIntimidated; // If NPC is Intimidated, it can react.
+    [Tooltip("if False then then the enemy is alive (used for checks)")]
+    public bool isDead; // if False then then the enemy is alive (used for checks).
+    [Tooltip("if NPC is Angry, it will attack the attackTag")]
+    public bool isAngry; // if NPC is Angry, it will attack the attackTag
+    [Tooltip("AttackPlayer will cause the npc to lock onto the player and will attack the player until scared or killed.")]
+    public bool attackPlayer; // AttackPlayer will cause the npc to lock onto the player and will attack the player until scared or killed.
+    [Tooltip("I don't even know, good luck finding out!")]
+    public Transform[] targets;
+    [Tooltip("Tag for which the NPC will attack if Intimidated by")]
+    public string attackTag; // Tag for which the NPC will attack if Intimidated by.
+    [Tooltip("FOV Angle")]
+    public float fovAngle = 60f; // FOV Angle
+    [Tooltip("FOV Disitant")]
+    public float fovDistance = 10f; // FOV Disitant
+
+    [Header("Personality")]
+    [Tooltip("Name of NPC, this will be generated using a name Script")]
+    public string cName;
+    [Tooltip("NPC's Gender, if False its a girl!")]
+    public bool IsMale;
+    [Tooltip("How Old the Chacter is")]
+    [Range(25, 80)] public int age = 25;
+    [Tooltip("What type of job does the NPC have?")]
+    public Occupation jobType;
+    [Tooltip("Is this NPC in a gang, if so which one")]
+    public Gang gangType;
+
+    [Header("AttachScripts")]
+    [Tooltip("Script which has all the names")]
+    public NPCName _names;
+
+
+    // Private Congfigs
+    private NavMeshAgent navAgent; // This is reffering to navAgent that you've attached the script too.
+
+    #region Unity
+    // Start is called before the first frame update
+    void Start()
+    {
+        NamePicker(); // Picks a name
+        navAgent = GetComponent<NavMeshAgent>();
+        #region NavDebug
+        // Debug, can be removed!
+        if (navAgent == null)
+        {
+            Debug.LogError("NavMeshAgent component not found on the same GameObject as FOV script.");
+        }
+        #endregion
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+        if (hasAI)
+        {
+            FOVCaculator();
+        }
+
+    }
+    #endregion
+
+    #region FOV
+    private void FOVCaculator()
+    {
+
+    }
+
+    private void OnDrawGizmos()
+    {
+        Vector3 origin = transform.position;
+        Quaternion rotation = transform.rotation;
+        Vector3 forwardDirection = rotation * Vector3.forward;
+
+        // Calculate the left and right vectors based on the FOV angle
+        Quaternion leftRotation = Quaternion.AngleAxis(-fovAngle * 0.5f, Vector3.up);
+        Quaternion rightRotation = Quaternion.AngleAxis(fovAngle * 0.5f, Vector3.up);
+        Vector3 leftVector = leftRotation * forwardDirection;
+        Vector3 rightVector = rightRotation * forwardDirection;
+
+        // Draw the field of view cone using Gizmos
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(origin, origin + forwardDirection * fovDistance);
+        Gizmos.DrawLine(origin, origin + leftVector * fovDistance);
+        Gizmos.DrawLine(origin, origin + rightVector * fovDistance);
+
+        // Draw the lines to connect the cone edges
+        Gizmos.DrawLine(origin + forwardDirection * fovDistance, origin + leftVector * fovDistance);
+        Gizmos.DrawLine(origin + forwardDirection * fovDistance, origin + rightVector * fovDistance);
+    }
+
+
+    #endregion
+    #region NamePick
+
+    private void NamePicker()
+    {
+        if(IsMale)
+        {
+            // Randomly pick two first names and a last name from the NPCName script
+            if (_names != null)
+            {
+                string[] maleName = _names.maleName;
+                string[] middleName = _names.middleName;
+                string lastName = _names.surnameName[Random.Range(0, _names.surnameName.Length)];
+
+                if (maleName.Length >= 2)
+                {
+                    string firstName1 = maleName[Random.Range(0, maleName.Length)];
+                    string firstName2 = middleName[Random.Range(0, middleName.Length)];
+
+                    // Combine the names to form the NPC's full name
+                    cName = firstName1 + " " + firstName2 + " " + lastName;
+                }
+                else
+                {
+                    Debug.LogWarning("Insufficient first names in NPCName script.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("NPCName script is not assigned to the NPC.");
+            }
+        }
+        else
+        {
+            // Randomly pick two first names and a last name from the NPCName script
+            if (_names != null)
+            {
+                string[] femaleName = _names.femaleName;
+                string[] middleName = _names.middleName;
+                string lastName = _names.surnameName[Random.Range(0, _names.surnameName.Length)];
+
+                if (femaleName.Length >= 2)
+                {
+                    string firstName1 = femaleName[Random.Range(0, femaleName.Length)];
+                    string firstName2 = middleName[Random.Range(0, middleName.Length)];
+
+                    // Combine the names to form the NPC's full name
+                    cName = firstName1 + " " + firstName2 + " " + lastName;
+                }
+                else
+                {
+                    Debug.LogWarning("Insufficient first names in NPCName script.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("NPCName script is not assigned to the NPC.");
+            }
+        }
+
+    }
+    #endregion
+
+}
