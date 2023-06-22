@@ -1,0 +1,21 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Billboard : MonoBehaviour
+{
+    //public Transform target;  // the target object that the billboard should face
+    public Camera cam;        // the camera the billboard should be oriented towards
+
+    void LateUpdate()
+    {
+        //// Calculate the position of the billboard in screen space
+        //Vector3 screenPos = cam.WorldToScreenPoint(target.position);
+
+        //// Set the position of the billboard's transform
+        //transform.position = screenPos;
+
+        // Make the billboard face the camera
+        transform.LookAt(transform.position + cam.transform.rotation * Vector3.forward, cam.transform.rotation * Vector3.up);
+    }
+}
