@@ -1,0 +1,23 @@
+using UnityEngine;
+
+public class CameraRotation : MonoBehaviour
+{
+    public float rotationSpeed = 5f;
+    public bool rotateX = true; // Switch for X rotation
+    public bool rotateY = true; // Switch for Y rotation
+
+    // Update is called once per frame
+    void Update()
+    {
+        float mouseX = Input.GetAxis("Mouse X");
+        float mouseY = Input.GetAxis("Mouse Y");
+
+        // Rotate around the X-axis if rotateX is true
+        if (rotateX)
+            transform.Rotate(Vector3.up, mouseX * rotationSpeed, Space.World);
+
+        // Rotate around the Y-axis if rotateY is true
+        if (rotateY)
+            transform.Rotate(Vector3.right, mouseY * rotationSpeed, Space.Self);
+    }
+}
