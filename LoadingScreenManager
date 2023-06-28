@@ -1,0 +1,50 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+public class LoadingScreenManager : MonoBehaviour
+{
+    public Slider loadingBar;
+    public TMP_Text progressText;
+
+    public string targetSceneName;
+
+    private void Start()
+    {
+        // Start loading the target scene asynchronously
+        StartCoroutine(LoadTargetScene());
+    }
+
+    private System.Collections.IEnumerator LoadTargetScene()
+    {
+        // Show the loading screen
+
+        // Load the target scene asynchronously
+        AsyncOperation asyncOperation = SceneManager.LoadSceneAsync(targetSceneName);
+
+        // Don't allow the scene to be activated immediately
+        asyncOperation.allowSceneActivation = false;
+
+        while (!asyncOperation.isDone)
+        {
+            // Update the loading progress
+            float progress = Mathf.Clamp01(asyncOperation.progress / 0.9f);
+            loadingBar.value = progress;
+            progressText.text = (progress * 100f).ToString("F0") + "%";
+
+            // Check if the loading is almost complete
+            if (asyncOperation.progress >= 0.9f)
+            {
+                // Update the loading progress to 100%
+                loadingBar.value = 1f;
+                progressText.text = "100%";
+
+                // Allow the scene activation
+                asyncOperation.allowSceneActivation = true;
+            }
+
+            yield return null;
+        }
+    }
+}
