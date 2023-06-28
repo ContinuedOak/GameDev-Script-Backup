@@ -5,11 +5,10 @@ using System;
 
 public class ZombieAI : MonoBehaviour
 {
-    [Header("ZombieAI Editor By ContinuedOak")]
-    [Header("bv.0.4")]
+    [Header("ZombieAI")]
+    [Header("v0.6.1")]
     [Space(12)]
     #region Config
-
     [Header("Config")]
     public bool hasAI;
     public bool isAlive;
@@ -19,45 +18,82 @@ public class ZombieAI : MonoBehaviour
     public bool isCrawler;
     public float speed;
     public int health;
-    public float[] hitBox; // [0] = x, [1] = y, [2] = z.
-    public float[] cHitBox; // [0] = x, [1] = y, [2] = z.
-    public float[] offSet; // [0] = C, [1] = W.
+    public Vector3 hitBox; // x, y, z
+    public Vector3 cHitBox; // x, y, z
+    public Vector2 offSet; // C, W
     public float destroyTime = 3f;
-
+    public float raycastDistance = 1f;
+    public LayerMask damageSourceLayer;
+    //////////////////////////////////////////////////////////
     [Header("Animations")]
     public int _animator;
     public Animator animator;
     public RuntimeAnimatorController[] newController;
-
+    //////////////////////////////////////////////////////////
     [Header("Scriptable/Attachables")]
     public GameObject model;
     public GameObject spawnObject;
     public GameObject[] drops;
     public delegate void ZombieDeathEventHandler(ZombieAI zombie);
     public event ZombieDeathEventHandler OnZombieDeath;
-
-
+    //////////////////////////////////////////////////////////
     [Header("Audio")]
     public AudioClip[] audioClips;
-    private AudioSource audioSource;
     public AudioClip death;
-
-    [Header("Ai Events")]
+    //////////////////////////////////////////////////////////
+    [Header("AI Events")]
     public bool isFollowing;
     public bool despawn;
-    public event Action<ZombieAI> Despawned;
+    //public event Action<ZombieAI> Despawned;
+    //////////////////////////////////////////////////////////
 
-    // private Configs...
+    // Private configurations
     private UnityEngine.AI.NavMeshAgent navAgent;
-    public float healthDecreaseRate = 10f; // Health decrease rate per second
+    //private float healthDecreaseRate = 10f; // Health decrease rate per second
     private UnityEngine.AI.NavMeshAgent agent;
     private GameObject player;
-    [SerializeField] private float minDelay = 2f;
-    [SerializeField] private float maxDelay = 5f;
+    private AudioSource audioSource;
     #endregion
 
-    #region Triggers/Damage
+    #region Loottable
+    void SpawnRandomDrop()
+    {
+        if (UnityEngine.Random.value <= 0.05f) // 5% chance to drop something
+        {
+            float dropChance = UnityEngine.Random.value;
 
+            // Check each drop item individually
+            if (dropChance <= 0.15f) // 15% Chance of dropping MaxAmmo
+            {
+                GameObject drop = Instantiate(drops[0], spawnObject.transform.position, Quaternion.identity);
+                return; // Only spawn one drop
+            }
+            else if (dropChance <= 0.20f) // 5% Chance of dropping nuke (0.20 - 0.15)
+            {
+                GameObject drop = Instantiate(drops[1], spawnObject.transform.position, Quaternion.identity);
+                return; // Only spawn one drop
+            }
+            else if (dropChance <= 0.25f) // 5% Chance of dropping another nuke (0.25 - 0.20)
+            {
+                GameObject drop = Instantiate(drops[2], spawnObject.transform.position, Quaternion.identity);
+                return; // Only spawn one drop
+            }
+            else if (dropChance <= 0.50f) // 25% Chance of dropping another nuke (0.50 - 0.25)
+            {
+                GameObject drop = Instantiate(drops[3], spawnObject.transform.position, Quaternion.identity);
+                return; // Only spawn one drop
+            }
+        }
+    }
+
+
+
+    #endregion
+    #region Triggers/Damage
+    public void TakeDamage(int damageAmount)
+    {
+        health -= damageAmount;
+    }
     #endregion
     #region Audio
     private void PlayRandomClip()
@@ -73,7 +109,6 @@ public class ZombieAI : MonoBehaviour
         audioSource.Play();
     }
 
-
     private IEnumerator PlayRandomClipsContinuously(float minDelay = 1f, float maxDelay = 3f)
     {
         while (true)
@@ -83,7 +118,6 @@ public class ZombieAI : MonoBehaviour
             yield return new WaitForSeconds(delay);
         }
     }
-
 
     public void StartPlayingRandomClips()
     {
@@ -95,16 +129,15 @@ public class ZombieAI : MonoBehaviour
     {
         StopAllCoroutines();
     }
-
     #endregion
-
     #region Unity
     private void Start()
     {
-        // NavInfo (AI finding its target
+        // NavInfo (AI finding its target)
         agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         player = GameObject.FindGameObjectWithTag("Player");
         navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        animator = GetComponent<Animator>();
 
         // Audio
         audioSource = GetComponent<AudioSource>();
@@ -117,11 +150,8 @@ public class ZombieAI : MonoBehaviour
 
         isFollowing = true;
 
-        // Random picks whether they crawl or walk, THIS WAS BULLSHIT TO GET EVERYTHING WORKING FOR BOTH
-        if (UnityEngine.Random.value <= 0.15f)
-        {
-            isCrawler = true;
-        }
+        // Randomly determine whether the zombie crawls or walks
+        isCrawler = UnityEngine.Random.value <= 0.15f;
 
         if (isCrawler)
         {
@@ -131,49 +161,37 @@ public class ZombieAI : MonoBehaviour
         {
             Regular();
         }
+
         ChangeSpeed();
     }
-
     private void Update()
     {
         Visiblity();
-        
         Dead();
-        #region Has AI
-        if (hasAI)
+        Jumping();
+        AIChecking();
+        if (Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, raycastDistance, damageSourceLayer))
         {
-            ForceGo();
-            if (isAlive)
+            if (hit.collider.CompareTag("DamageSource"))
             {
-                ForceGo();
-                Following();
+                TakeDamage(1);
                 
             }
         }
-        else
-        {
-            ForceStop();
-        }
-        #endregion
     }
     #endregion
-
-    // YOU NEED TO FINSIH REWRITTING THIS SCRIPT TO SUPPORT DEATHS FOR THE WAVES
-    // Fuck the wave system try and figure out how you want them ai spawning to work cause you've already crashed your PC 3 Times now...
-
-    // Current Ideas
-    //
-    // (Ai will constantly spawn (TO A LIMIT) and the player must upgrade their weapons to get the highest score)
-    //
-    // (AI will spawn a limited amount each round (like COD zombies) starting with a small amount of health progressivly getting harder
-    // as the player players each round, allowing for the "highest round")
-    
     #region AI
+
     private void Following()
     {
         if (isFollowing && player != null)
         {
             agent.SetDestination(player.transform.position);
+        }
+        else
+        {
+            ForceStop();
+            Despawn();
         }
     }
 
@@ -192,19 +210,20 @@ public class ZombieAI : MonoBehaviour
         agent.isStopped = false;
     }
 
-    // This is the what runs if the player is dead
     private void Dead()
     {
-        if (health <= 0) // double checks the players health = 0 or less then
+        if (health <= 0)
         {
             isAlive = false;
-            isDead = true; // sets the players is dead
-            hasAI = false; // disables AI
-            isVisible = false; // this is currently how im handling death
-            SpawnRandomDrop();
+            isDead = true;
+            hasAI = false;
+            isVisible = false;
+            Visiblity();
+            SpawnRandomDrop(); // Spawn the random drop items
+
             // Call the OnZombieDeath event, passing this zombie as an argument
             OnZombieDeath?.Invoke(this);
-
+            ForceStop();
         }
         else
         {
@@ -212,31 +231,7 @@ public class ZombieAI : MonoBehaviour
         }
     }
 
-    // Drops
 
-    void SpawnRandomDrop()
-    {
-        if (UnityEngine.Random.value <= 0.15f) // 15% Chance of it dropping an item
-        {
-            if (UnityEngine.Random.value <= 0.15f) // 15% Chance of it dropping an MaxAmmo
-            {
-                GameObject drop = Instantiate(drops[0], spawnObject.transform.position, Quaternion.identity);
-            }
-            if (UnityEngine.Random.value <= 0.05f) // 5% Chance of it dropping an nuke
-            {
-                GameObject drop = Instantiate(drops[1], spawnObject.transform.position, Quaternion.identity);
-            }
-            if (UnityEngine.Random.value <= 0.05f) // 5% Chance of it dropping an nuke
-            {
-                GameObject drop = Instantiate(drops[2], spawnObject.transform.position, Quaternion.identity);
-            }
-            if (UnityEngine.Random.value <= 0.25f) // 25% Chance of it dropping an nuke
-            {
-                GameObject drop = Instantiate(drops[3], spawnObject.transform.position, Quaternion.identity);
-            }
-        }
-
-    }
     #endregion
     #region Types
     void Crawler()
@@ -253,9 +248,6 @@ public class ZombieAI : MonoBehaviour
         BoxCollider boxCollider = GetComponent<BoxCollider>();
         boxCollider.size = new Vector3(cHitBox[0], cHitBox[1], cHitBox[2]);
         boxCollider.center = new Vector3(0, offSet[0], 0);
-
-
-        // [0] = x, [1] = y, [2] = z.
     }
 
     void Regular()
@@ -271,7 +263,6 @@ public class ZombieAI : MonoBehaviour
         boxCollider.center = new Vector3(0, offSet[1], 0);
     }
     #endregion
-
     #region Visiblity/Despawn
     private void Visiblity()
     {
@@ -285,14 +276,49 @@ public class ZombieAI : MonoBehaviour
         }
     }
 
-
     public void Despawn()
     {
-        // Raise the "despawned" event
-        Despawned?.Invoke(this);
-
         // Destroy the zombie game object
         Destroy(gameObject, destroyTime);
+    }
+    #endregion
+    #region Ai Check
+    void AIChecking()
+    {
+        #region Has AI
+        if (hasAI)
+        {
+            ForceGo();
+            if (isAlive)
+            {
+                Following();
+
+            }
+        }
+        else
+        {
+            ForceStop();
+        }
+        #endregion
+    }
+    #endregion
+    #region Jump
+    private void Jumping()
+    {
+        if (animator != null && navAgent != null)
+        {
+            if (!isCrawler)
+            {
+                if (navAgent.velocity.y > 0f) // Check if the agent is moving upwards
+                {
+                    animator.SetBool("jump", true); // Set the "jump" bool parameter to true
+                }
+                else
+                {
+                    animator.SetBool("jump", false); // Set the "jump" bool parameter to false
+                }
+            }
+        }
     }
     #endregion
 }
