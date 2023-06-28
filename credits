@@ -1,0 +1,58 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class Cedits : MonoBehaviour
+{
+    [Header("Credits Editor")]
+    [Space(2)]
+    [Header("Names")]
+    public string[] leadDev;
+    public string[] artwork;
+    public string[] scripts;
+    public string[] playtesters;
+    public string[] soundDesigners;
+
+    [Header("Text")]
+    public TMP_Text[] leadDevTxt;
+    public TMP_Text[] artworkTxt;
+    public TMP_Text[] scriptsTxt;
+    public TMP_Text[] playtestersTxt;
+    public TMP_Text[] soundDesignersTxt;
+
+
+    private void Start()
+    {
+        // Set Lead Developer text
+        for (int i = 0; i < leadDev.Length && i < leadDevTxt.Length; i++)
+        {
+            leadDevTxt[i].text = leadDev[i];
+        }
+
+        // Set Artwork text
+        for (int i = 0; i < artwork.Length && i < artworkTxt.Length; i++)
+        {
+            artworkTxt[i].text = artwork[i];
+        }
+
+        // Set Scripts text
+        for (int i = 0; i < scripts.Length && i < scriptsTxt.Length; i++)
+        {
+            scriptsTxt[i].text = scripts[i];
+        }
+
+        // Set Playtesters text
+        for (int i = 0; i < playtesters.Length && i < playtestersTxt.Length; i++)
+        {
+            playtestersTxt[i].text = playtesters[i];
+        }
+
+        // Set Sound Designers text
+        for (int i = 0; i < soundDesigners.Length && i < soundDesignersTxt.Length; i++)
+        {
+            soundDesignersTxt[i].text = soundDesigners[i];
+        }
+    }
+}
